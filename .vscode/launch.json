@@ -13,7 +13,7 @@
             "justMyCode": false,
             "args": [
                 "--experiment",
-                "dkvb_resnet18_pretrain"
+                "dkvb_resnet18_1_pretrain"
             ]
         }
     ]
