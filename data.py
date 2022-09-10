@@ -32,7 +32,7 @@ class CIFAR100(Dataset):
 
         # Loading and preprocessing labels
         self.labels = torch.LongTensor(data_dict[b"fine_labels"])
-        self.labels = F.one_hot(self.labels, num_classes=100)
+        self.labels = F.one_hot(self.labels, num_classes=100).type(torch.float32)
 
         # Splitting data
         index_split = int(train_val_split * self.images.shape[0])
