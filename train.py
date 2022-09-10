@@ -10,6 +10,8 @@ from torch.utils.tensorboard import SummaryWriter
 import config
 from utils_experiment import parse_experiment
 
+DEVICE = "cuda"
+
 
 @parse_experiment
 def train(
@@ -22,11 +24,12 @@ def train(
     learning_rate: float,
     num_epochs_initialization_keys: int,
     num_epochs: int,
+    device: str = DEVICE,
     **experiment,
 ):
     # Building model
     model = architecture(**experiment)
-    model.cuda()
+    model.to(device)
     print(model)
     print(f"Encoder total parameters: {sum(param.numel() for param in model.encoder.parameters())}")
     # print(f"Key-Value Bottleneck total parameters: {sum(param.numel() for param in model.encoder.parameters())}")
@@ -36,8 +39,9 @@ def train(
     train_dataset = dataset(train_val_split=train_val_split)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=2, pin_memory=True)
 
-    # Configure Optimizer
+    # Configure Optimizer and Loss Function
     optimizer = optimizer(model.parameters(), lr=learning_rate)
+    criteria = criteria()
 
     # Initializing Tensorboard logging
     writer = SummaryWriter(log_dir=os.path.join(config.logs_path, experiment["name"]))
@@ -47,10 +51,10 @@ def train(
     os.makedirs(output_folder, exist_ok=True)
 
     model.train(True)
+
     if experiment["architecture_type"] == "discrete_key_value_bottleneck":
 
         print("[PHASE-0] Keys Initialization:")
-
         # Start Training
         for epoch in range(num_epochs_initialization_keys):
 
@@ -63,20 +67,20 @@ def train(
                 images, labels = batch
 
                 # Inference
-                images = images.cuda()
+                images = images.to(device)
                 output = model(images)
 
-    print("[PHASE-1] Training Decoder and Values:")
     if experiment["architecture_type"] == "discrete_key_value_bottleneck":
-        # Freezing Vector Quantizer
-        model.key_value_bottleneck.vq.training = False
-        for param in model.key_value_bottleneck.vq.parameters():
-            param.requires_grad = False
+        print("[PHASE-1] Training Decoder and Values:")
+        # Freezing Keys
+        model.key_value_bottleneck.vq.train(False)
+    else:
+        print("Training Network:")
 
     # Start Training
     for epoch in range(num_epochs):
 
-        print(f" > Training epoch {epoch + 1} of {num_epochs_initialization_keys}")
+        print(f" > Training epoch {epoch + 1} of {num_epochs}")
 
         # Epoch training
         running_loss = 0.0
@@ -84,12 +88,13 @@ def train(
         for i, batch in enumerate(pbar):
 
             images, labels = batch
+            images = images.to(device)
+            labels = labels.to(device)
 
             # Zero fradient before every batch
             optimizer.zero_grad()
 
             # Inference
-            images = images.cuda()
             output = model(images)
 
             # Compute loss
