@@ -13,7 +13,19 @@
             "justMyCode": false,
             "args": [
                 "--experiment",
-                "dkvb_resnet18_1_pretrain"
+                "vq_resnet18_1_pretrain"
+            ]
+        },
+        {
+            "name": "Train Experiment",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--experiment",
+                "baseline_resnet18_pretrain"
             ]
         }
     ]
