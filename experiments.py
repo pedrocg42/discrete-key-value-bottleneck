@@ -2,7 +2,7 @@
 from networks.discrete_key_value_bottleneck import DKVB
 
 # Pretrained Encoders
-from torchvision.models import resnet18
+from torchvision.models import resnet50
 
 # Optimizers
 from torch.optim import Adam
@@ -13,8 +13,8 @@ from torch.nn import CrossEntropyLoss
 # Datasets
 from data import CIFAR100
 
-dkvb_resnet18_1_pretrain = {
-    "name": "dkvb_resnet18_1_pretrain",
+dkvb_resnet50_1_pretrain = {
+    "name": "dkvb_resnet50_1_pretrain",
     # Model
     "architecture": DKVB,
     "architecture_type": "discrete_key_value_bottleneck",
@@ -40,8 +40,17 @@ dkvb_resnet18_1_pretrain = {
     "num_epochs": 100,
 }
 
-vq_resnet18_1_pretrain = {
-    "name": "vq_resnet18_1_pretrain",
+dkvb_resnet50_64_pretrain = dkvb_resnet50_1_pretrain.copy()
+dkvb_resnet50_64_pretrain.update({"name": "dkvb_resnet50_64_pretrain", "num_codebooks": 64})
+
+dkvb_resnet50_128_pretrain = dkvb_resnet50_1_pretrain.copy()
+dkvb_resnet50_128_pretrain.update({"name": "dkvb_resnet50_128_pretrain", "num_codebooks": 128})
+
+dkvb_resnet50_512_pretrain = dkvb_resnet50_1_pretrain.copy()
+dkvb_resnet50_512_pretrain.update({"name": "dkvb_resnet50_512_pretrain", "num_codebooks": 512})
+
+vq_resnet50_1_pretrain = {
+    "name": "vq_resnet50_1_pretrain",
     # Model
     "architecture": DKVB,
     "architecture_type": "vector_quantized",
@@ -66,8 +75,17 @@ vq_resnet18_1_pretrain = {
     "num_epochs": 100,
 }
 
-baseline_resnet18_pretrain = {
-    "name": "baseline_resnet18_pretrain",
+vq_resnet50_64_pretrain = vq_resnet50_1_pretrain.copy()
+vq_resnet50_64_pretrain.update({"name": "vq_resnet50_64_pretrain", "num_codebooks": 64})
+
+vq_resnet50_128_pretrain = vq_resnet50_1_pretrain.copy()
+vq_resnet50_128_pretrain.update({"name": "vq_resnet50_128_pretrain", "num_codebooks": 128})
+
+vq_resnet50_512_pretrain = vq_resnet50_1_pretrain.copy()
+vq_resnet50_512_pretrain.update({"name": "vq_resnet50_512_pretrain", "num_codebooks": 512})
+
+baseline_resnet50_pretrain = {
+    "name": "baseline_resnet50_pretrain",
     # Model
     "architecture": DKVB,
     "architecture_type": "baseline",
