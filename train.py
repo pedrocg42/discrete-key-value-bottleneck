@@ -89,6 +89,9 @@ def train(
         if experiment["architecture_type"] == "discrete_key_value_bottleneck":
             # Freezing Keys
             model.key_value_bottleneck.vq.train(False)
+        elif experiment["architecture_type"] == "vector_quantized":
+            # Freezing Keys
+            model.vector_quantizer.train(False)
 
         print(f" > Training epoch {epoch + 1} of {num_epochs}")
 
@@ -162,7 +165,7 @@ def train(
         writer.add_scalar("Accuracy/Validation Accuracy", avg_accuracy, epoch)
 
     # Saving model
-    model_file_path = os.path.join(config.models_path, experiment["experiment"])
+    model_file_path = os.path.join(config.models_path, experiment["name"])
     print(f" > Saving model in {model_file_path}")
     torch.save(model.state_dict(), model_file_path)
 
