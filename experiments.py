@@ -1,5 +1,5 @@
 # Architectures
-from models.discrete_key_value_bottleneck import DKVB
+from networks.discrete_key_value_bottleneck import DKVB
 
 # Pretrained Encoders
 from torchvision.models import resnet18
