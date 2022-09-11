@@ -13,7 +13,7 @@
             "justMyCode": false,
             "args": [
                 "--experiment",
-                "vq_resnet18_1_pretrain"
+                "vq_resnet50_512_pretrain"
             ]
         },
         {
@@ -25,7 +25,7 @@
             "justMyCode": true,
             "args": [
                 "--experiment",
-                "baseline_resnet18_pretrain"
+                "dkvb_resnet50_512_pretrain"
             ]
         }
     ]
