@@ -1,11 +1,13 @@
 import os
 
 import fire
+import numpy as np
 import torch
 import torch.nn as nn
-from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
+from torchmetrics import Accuracy
+from tqdm import tqdm
 
 import config
 from utils_experiment import parse_experiment
@@ -22,8 +24,8 @@ def train(
     optimizer: nn.Module,
     criteria: nn.Module,
     learning_rate: float,
-    num_epochs_initialization_keys: int,
     num_epochs: int,
+    num_epochs_initialization_keys: int = 10,
     device: str = DEVICE,
     **experiment,
 ):
@@ -37,14 +39,22 @@ def train(
 
     # Preparing dataset
     train_dataset = dataset(train_val_split=train_val_split)
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=batch_size, num_workers=2, pin_memory=True)
+    val_dataset = dataset(train_val_split=train_val_split, split="val")
+    train_dataloader = DataLoader(
+        dataset=train_dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True
+    )
+    val_dataloader = DataLoader(dataset=val_dataset, batch_size=batch_size, num_workers=2, pin_memory=True)
 
     # Configure Optimizer and Loss Function
     optimizer = optimizer(model.parameters(), lr=learning_rate)
     criteria = criteria()
 
-    # Initializing Tensorboard logging
+    # Initializing Tensorboard logging and adding model graph
     writer = SummaryWriter(log_dir=os.path.join(config.logs_path, experiment["name"]))
+    writer.add_graph(model, torch.zeros((100, 3, 32, 32), dtype=torch.float32).to(device))
+
+    # Initializing metrics
+    accuracy = Accuracy().to(device)
 
     # Creating output folder for saving the model
     output_folder = os.path.join(config.models_path, experiment["name"])
@@ -65,25 +75,26 @@ def train(
             for i, batch in enumerate(pbar):
 
                 images, labels = batch
+                images = images.to(device)
 
                 # Inference
-                images = images.to(device)
                 output = model(images)
 
-    if experiment["architecture_type"] == "discrete_key_value_bottleneck":
-        print("[PHASE-1] Training Decoder and Values:")
-        # Freezing Keys
-        model.key_value_bottleneck.vq.train(False)
-    else:
-        print("Training Network:")
+    print("[PHASE-1] Training Classifier:")
 
     # Start Training
     for epoch in range(num_epochs):
+
+        model.train(True)
+        if experiment["architecture_type"] == "discrete_key_value_bottleneck":
+            # Freezing Keys
+            model.key_value_bottleneck.vq.train(False)
 
         print(f" > Training epoch {epoch + 1} of {num_epochs}")
 
         # Epoch training
         running_loss = 0.0
+        batch_accuracies = []
         pbar = tqdm(train_dataloader)
         for i, batch in enumerate(pbar):
 
@@ -107,8 +118,55 @@ def train(
             # Computing loss
             running_loss += loss.item()
             avg_loss = running_loss / (i + 1)  # add batch_size
-            pbar.set_postfix({"train_loss": avg_loss})
 
+            # Computing accuracy
+            batch_accuracies.append(accuracy(output.detach(), torch.argmax(labels.detach(), axis=1)).item())
+            avg_accuracy = np.mean(batch_accuracies)
+
+            pbar.set_postfix({"train_loss": avg_loss, "train_accuracy": avg_accuracy})
+
+        # Adding logs for every epoch
+        writer.add_scalar("Loss/Train Loss", avg_loss, epoch)
+        writer.add_scalar("Accuracy/Train Accuracy", avg_accuracy, epoch)
+
+        # Epoch validation
+        model.train(False)
+
+        running_loss = 0.0
+        batch_accuracies = []
+        pbar = tqdm(val_dataloader)
+        for i, batch in enumerate(pbar):
+
+            images, labels = batch
+            images = images.to(device)
+            labels = labels.to(device)
+
+            # Inference
+            output = model(images)
+
+            # Compute loss
+            loss = criteria(output, labels)
+
+            # Computing loss
+            running_loss += loss.item()
+            avg_loss = running_loss / (i + 1)  # add batch_size
+
+            # Computing accuracy
+            batch_accuracies.append(accuracy(output.detach(), torch.argmax(labels.detach(), axis=1)).item())
+            avg_accuracy = np.mean(batch_accuracies)
+
+            pbar.set_postfix({"val_loss": avg_loss, "val_accuracy": avg_accuracy})
+
+        # Adding logs for every epoch
+        writer.add_scalar("Loss/Validation Loss", avg_loss, epoch)
+        writer.add_scalar("Accuracy/Validation Accuracy", avg_accuracy, epoch)
+
+    # Saving model
+    model_file_path = os.path.join(config.models_path, experiment["experiment"])
+    print(f" > Saving model in {model_file_path}")
+    torch.save(model.state_dict(), model_file_path)
+
+    writer.close()
     print("End")
 
 
