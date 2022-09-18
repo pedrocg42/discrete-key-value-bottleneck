@@ -20,6 +20,7 @@ class DKVB(nn.Module):
         p_dropout: float = 0.2,
         hidden_dense_layers: List[int] = [512, 256],
         num_classes: int = 100,
+        freeze_encoder: bool = True,
         **kwargs,
     ):
         super(DKVB, self).__init__()
@@ -35,6 +36,7 @@ class DKVB(nn.Module):
         self.p_dropout = p_dropout
         self.hidden_dense_layers = hidden_dense_layers
         self.num_classes = num_classes
+        self.freeze_encoder = freeze_encoder
 
         # embedding dimension and number of key-value pairs must be divisible by number of codes
         assert (self.embedding_dim % num_codebooks) == 0
@@ -55,17 +57,21 @@ class DKVB(nn.Module):
             nn.AdaptiveAvgPool2d(output_size=(1, 1)),
         )
 
-        # Freezing the encoder
-        for param in self.encoder.parameters():
-            param.requires_grad = False
+        if self.freeze_encoder:
+            # Freezing the encoder
+            for param in self.encoder.parameters():
+                param.requires_grad = False
 
         if self.architecture_type == "discrete_key_value_bottleneck":
+
             if isinstance(self.value_dimension, str):
                 self.value_dimension = self.embedding_dim // self.num_codebooks
+
             self.key_value_bottleneck = DiscreteKeyValueBottleneck(
                 dim=self.embedding_dim,  # input dimension
+                codebook_dim=self.embedding_dim // self.num_codebooks,
                 num_memory_codebooks=self.num_codebooks,  # number of memory codebook
-                num_memories=self.embedding_dim // self.num_codebooks,  # number of memories
+                num_memories=self.key_value_pairs // self.num_codebooks,  # number of memories
                 dim_memory=self.embedding_dim // self.num_codebooks,  # dimension of the output memories
                 decay=self.vq_decay,  # the exponential moving average decay, lower means the keys will change faster
                 threshold_ema_dead_code=self.threshold_ema_dead_code,  # (0.8·batch-size·h·w·mz/num-pairs)
@@ -74,7 +80,8 @@ class DKVB(nn.Module):
         elif self.architecture_type == "vector_quantized":
             self.vector_quantizer = VectorQuantize(
                 dim=self.embedding_dim,
-                codebook_size=self.embedding_dim // self.num_codebooks,
+                codebook_dim=self.embedding_dim // self.num_codebooks,
+                codebook_size=self.key_value_pairs // self.num_codebooks,
                 heads=self.num_codebooks,
                 separate_codebook_per_head=True,
                 decay=self.vq_decay,
@@ -83,7 +90,7 @@ class DKVB(nn.Module):
 
         # Dense classification head
         decoder_module_list = nn.ModuleList()
-        decoder_module_list.append(nn.Dropout(p=0.2))
+        decoder_module_list.append(nn.Dropout(p=self.p_dropout))
         decoder_module_list.append(nn.Linear(self.embedding_dim, self.hidden_dense_layers[0]))
         for i in range(len(self.hidden_dense_layers) - 1):
             decoder_module_list.append(nn.Linear(self.hidden_dense_layers[i], self.hidden_dense_layers[i + 1]))
@@ -94,14 +101,16 @@ class DKVB(nn.Module):
 
     def forward(self, input):
 
-        with torch.no_grad():
+        if self.freeze_encoder:
+            with torch.no_grad():
+                embeddings = self.encoder(input)
+                embeddings.detach_()
+        else:
             embeddings = self.encoder(input)
-            embeddings.detach_()
 
         if self.architecture_type == "discrete_key_value_bottleneck":
             # Reshaping embeddings to necessary format (batch, sequence, memory dimension)
-            batch_size = input.shape[0]
-            embeddings = torch.reshape(embeddings, (batch_size, 1, -1))
+            embeddings = embeddings.reshape(embeddings.shape[0], 1, self.embedding_dim)
             # Creating memories
             memories = self.key_value_bottleneck(embeddings)
             # Processing final output
@@ -109,8 +118,7 @@ class DKVB(nn.Module):
 
         elif self.architecture_type == "vector_quantized":
             # Reshaping embeddings to necessary format (batch, sequence, memory dimension)
-            batch_size = input.shape[0]
-            embeddings = torch.reshape(embeddings, (batch_size, 1, -1))
+            embeddings = embeddings.reshape(embeddings.shape[0], 1, self.embedding_dim)
             # Creating memories (output = quantized_embeddings, memory_indices, commit_loss)
             quantized_embeddings, _, _ = self.vector_quantizer(embeddings)
             # Processing final output
