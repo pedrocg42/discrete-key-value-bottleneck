@@ -56,13 +56,9 @@ def train(
     # Initializing metrics
     accuracy = Accuracy().to(device)
 
-    # Creating output folder for saving the model
-    output_folder = os.path.join(config.models_path, experiment["name"])
-    os.makedirs(output_folder, exist_ok=True)
-
     model.train(True)
 
-    if experiment["architecture_type"] == "discrete_key_value_bottleneck":
+    if experiment["architecture_type"] in ["discrete_key_value_bottleneck", "vector_quantized"]:
 
         print("[PHASE-0] Keys Initialization:")
         # Start Training
@@ -165,10 +161,11 @@ def train(
         writer.add_scalar("Accuracy/Validation Accuracy", avg_accuracy, epoch)
 
     # Saving model
-    model_file_path = os.path.join(config.models_path, experiment["name"])
+    model_file_path = os.path.join(config.models_path, f"{experiment['name']}.pt")
     print(f" > Saving model in {model_file_path}")
     torch.save(model.state_dict(), model_file_path)
 
+    del model
     writer.close()
     print("End")
 
