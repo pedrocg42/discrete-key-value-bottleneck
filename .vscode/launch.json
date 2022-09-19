@@ -17,15 +17,39 @@
             ]
         },
         {
-            "name": "Train Experiment",
+            "name": "Train Pretraining",
             "type": "python",
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "--experiment",
                 "dkvb_resnet50_512_pretrain"
+            ]
+        },
+        {
+            "name": "Train Experiment",
+            "type": "python",
+            "request": "launch",
+            "program": "train_exp.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--experiment",
+                "dkvb_resnet50_128_exp1_class_99"
+            ]
+        },
+        {
+            "name": "Evaluate Experiment",
+            "type": "python",
+            "request": "launch",
+            "program": "evaluate.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--experiment",
+                "dkvb_resnet50_64_pretrain"
             ]
         }
     ]
