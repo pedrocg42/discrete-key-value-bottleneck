@@ -21,6 +21,7 @@ class DKVB(nn.Module):
         hidden_dense_layers: List[int] = [512, 256],
         num_classes: int = 100,
         freeze_encoder: bool = True,
+        freeze_decoder: bool = False,
         **kwargs,
     ):
         super(DKVB, self).__init__()
@@ -37,6 +38,7 @@ class DKVB(nn.Module):
         self.hidden_dense_layers = hidden_dense_layers
         self.num_classes = num_classes
         self.freeze_encoder = freeze_encoder
+        self.freeze_decoder = freeze_decoder
 
         # embedding dimension and number of key-value pairs must be divisible by number of codes
         assert (self.embedding_dim % num_codebooks) == 0
@@ -98,6 +100,11 @@ class DKVB(nn.Module):
         decoder_module_list.append(nn.Softmax(dim=1))
 
         self.decoder = nn.Sequential(*decoder_module_list)
+
+        if self.freeze_decoder:
+            # Freezing the encoder
+            for param in self.decoder.parameters():
+                param.requires_grad = False
 
     def forward(self, input):
 
