@@ -57,7 +57,7 @@ def train(
     accuracy = Accuracy().to(device)
 
     model.train(True)
-
+    model.encoder.train(False)
     if experiment["architecture_type"] in ["discrete_key_value_bottleneck", "vector_quantized"]:
 
         print("[PHASE-0] Keys Initialization:")
@@ -82,6 +82,7 @@ def train(
     for epoch in range(num_epochs):
 
         model.train(True)
+        model.encoder.train(False)
         if experiment["architecture_type"] == "discrete_key_value_bottleneck":
             # Freezing Keys
             model.key_value_bottleneck.vq.train(False)
@@ -129,7 +130,7 @@ def train(
         writer.add_scalar("Accuracy/Train Accuracy", avg_accuracy, epoch)
 
         # Epoch validation
-        model.train(False)
+        model.eval()
 
         running_loss = 0.0
         batch_accuracies = []
